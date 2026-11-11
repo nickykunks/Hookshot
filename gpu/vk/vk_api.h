@@ -15,7 +15,9 @@
 extern "C" {
 #endif
 
-#define MKWVK_API_VERSION 14
+#define MKWVK_API_VERSION 15
+/* Optional title-owned runtime/UI capabilities. Unknown titles receive no flags. */
+enum { MKWVK_GAME_FEATURE_OOT_DEBUG = 1u << 0 };
 enum { HOS_OPT_CHEAT_HEARTS = 32, HOS_OPT_CHEAT_FLIGHT, HOS_OPT_CHEAT_ACTION, HOS_OPT_CHEAT_CAMERA, HOS_OPT_CHEAT_SPEED };
 /* (hookshot) the Gameplay tab's Text size (host/oot_text_size.c): 0 the game's, 1 110%, 2 125%, 3 150%, 4 175% */
 enum { HOS_OPT_TEXT_SIZE = 10 };
@@ -146,6 +148,8 @@ typedef struct MkwVkHost {
        (a bit each; HOS_WIDE_KEEP=<hex> over it); returns the margin of the middle 16:9 at either side, a fraction of the
        picture's width (0: the picture is 16:9) */
     float (*wide_menus)(uint32_t keep_mask);
+    /* Optional title features selected from the generated program ID and exact main build ID. */
+    uint32_t (*game_features)(void);
 } MkwVkHost;
 
 /* One completed temporal-upscale sample; all zero while inactive. */
