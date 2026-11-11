@@ -16,6 +16,7 @@ def main():
     assert OOT_REMAKE.game_id == "oot-remake"
     assert OOT_REMAKE.name == "The Legend of Zelda: Ocarina of Time remake"
     assert OOT_REMAKE.build_id_prefix == "e0f3ccfa"
+    assert OOT_REMAKE.lift_patch_set == "oot-remake-1.1.1"
 
     # NSO module IDs contain a longer fingerprint; matching intentionally uses the
     # existing eight-character build prefix, preserving the old acceptance rule.
