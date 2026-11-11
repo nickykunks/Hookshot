@@ -15,6 +15,7 @@ class GameProfile:
     game_id: str
     name: str
     build_id_prefix: str
+    lift_patch_set: str | None = None
 
     def matches_build_id(self, build_id):
         """Whether an NSO module ID belongs to this profile's supported build."""
@@ -27,6 +28,7 @@ OOT_REMAKE = GameProfile(
     game_id="oot-remake",
     name="The Legend of Zelda: Ocarina of Time remake",
     build_id_prefix="e0f3ccfa",
+    lift_patch_set="oot-remake-1.1.1",
 )
 
 # Extend this registry only when the pipeline can actually build and run that title.
