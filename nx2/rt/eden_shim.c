@@ -9,8 +9,8 @@
 #include <stdlib.h>
 
 extern const uint32_t a64_fn_count;
-extern const uint64_t mkw_image_base;
-extern const char mkw_main_build_id[];
+extern const uint64_t recomp_image_base;
+extern const char recomp_main_build_id[];
 
 #define SAME(f) _Static_assert(offsetof(GuestContext, f) == offsetof(MkwGuestContext, f), "MkwGuestContext." #f)
 SAME(x); SAME(pc); SAME(n); SAME(v); SAME(halted); SAME(vreg); SAME(tpidr_el0); SAME(tpidrro_el0); SAME(fpcr);
