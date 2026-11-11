@@ -298,10 +298,12 @@ def split_big(gen_dir, files, budget=None):
     return made
 
 
-def edit_c(gen, stats, supported, whole=True):
-    """(nx2/lift.py, after the lift writes its C; here, beside the writing, so it imports without the lift's tools) The edits of the written C, in this order: the game's patches (nx2/oot_patches.py, which find the lift's exact text; the
-    supported build's whole standalone lift fails when an output-size edit finds no place), then, last, the page marks of each
-    group of stores shared (a64_lift.group_marks), which changes that text. stats: the lift's, for its report"""
-    import oot_patches
-    oot_patches.apply(gen, protect_hearts=supported, required=supported and whole)
+def edit_c(gen, stats, profile=None, *, standalone=False, main_build_id="", whole=True):
+    """Apply the selected profile's generated-C patches, then the shared page-mark pass.
+
+    Title-specific patch modules are selected lazily by nx2/lift_patches.py; an unknown
+    profile therefore receives no Ocarina-specific generated-C edits.
+    """
+    import lift_patches
+    lift_patches.apply_post_write(gen, profile, standalone=standalone, main_build_id=main_build_id, whole=whole)
     a64_lift.group_marks(sorted(glob.glob(os.path.join(glob.escape(gen), "code_*.c"))), stats)
