@@ -67,6 +67,16 @@ class LiftPatchRegistryTests(unittest.TestCase):
             )
             importer.assert_not_called()
 
+    def test_lift_and_chunk_writer_route_through_the_registry(self):
+        lift = (ROOT / "nx2" / "lift.py").read_text(encoding="utf-8")
+        chunks = (ROOT / "nx2" / "chunks.py").read_text(encoding="utf-8")
+        self.assertIn("profile_for_build_id(main_build)", lift)
+        self.assertIn("install_pre_discovery(L, img, profile", lift)
+        self.assertIn("chunks.edit_c(gen, L.stats, profile", lift)
+        self.assertIn("apply_post_write(gen, profile", chunks)
+        self.assertNotIn("oot_wide.install(L, img)", lift)
+        self.assertNotIn("import oot_patches", lift)
+
     def test_post_write_keeps_exact_build_gate_for_strict_oot_patches(self):
         import oot_patches
         exact = "e0f3ccfaf50065ae4ea01eb5aeb13b1a45da3348"
