@@ -39,6 +39,8 @@ import image as eden_image
 import a64emit
 import a64_lift
 import a64_rtgen
+import game_profiles
+import lift_patches
 
 insn.install()
 lift_fixes.install()
@@ -140,6 +142,12 @@ def main():
     out_dir = os.path.join(a.work, "sa") if a.standalone else a.work
     img_dir = os.path.join(out_dir, "image")
     meta = img.write(img_dir)
+    main_build = next((m["build_id"] for m in meta["modules"] if m["name"] == "main"), "")
+    profile = game_profiles.profile_for_build_id(main_build)
+    if profile is None:
+        print("lift patches: no title-specific patch set for main build %s" % (main_build or "<unknown>"))
+    else:
+        print("lift patches: %s (%s)" % (profile.game_id, profile.lift_patch_set or "shared only"))
     print("image: %s; %d entries, %d trampolines (%d unresolved non-weak imports) (%.0fs)" % (
         ", ".join("%s@%#x+%#x" % (m["name"], m["base"], m["size"]) for m in meta["modules"]),
         len(img.entries), len(img.tramp), len(img.unresolved), time.time() - t0))
@@ -158,13 +166,7 @@ def main():
         print("ADR / ADRP+ADD code addresses outside the %d unwind-covered functions: %d, %d of them new entries" % (
             len(spans), len(refs), len(new)))
     L = a64_lift.Lifter(img)
-    if a.standalone:   # (hookshot) widescreen and ultrawide: C after a few of the game's instructions
-        import oot_wide
-        oot_wide.install(L, img)
-        import oot_jitter   # (the temporal upscalers' camera jitter, DLSS's and FSR 3.1's: none unless one runs, host/rx_backend.c)
-        oot_jitter.install(L, img)
-        import oot_occlusion   # (no occlusion queries when HOOKSHOT_OCCLUSION_OFF=1: Fritchii's Occlusion Off)
-        oot_occlusion.install(L, img)
+    lift_patches.install_pre_discovery(L, img, profile, standalone=a.standalone)
     L.discover(max_insns=a.max_func)
     print("discovered %d functions (%.0fs)" % (len(L.funcs), time.time() - t0))
     total = coverage(L, img, img_dir)
@@ -183,9 +185,8 @@ def main():
         gen = os.path.join(out_dir, "gen")
         files = chunks.write(L, gen, os.path.join(a.work, "image"), a.rechunk and not a.standalone,
                              counters=[] if a.no_polls else [poll.stats])
-        import oot_patches
-        main_build = next((m["build_id"] for m in meta["modules"] if m["name"] == "main"), "")
-        chunks.edit_c(gen, L.stats, a.standalone and main_build == oot_patches.LIFE_BUILD_ID, whole=not a.max_func)
+        chunks.edit_c(gen, L.stats, profile, standalone=a.standalone, main_build_id=main_build,
+                      whole=not a.max_func)
         a64_rtgen.write(gen)
         if a.standalone:
             start, exit_ = standalone.write_image_c(gen, img, meta, a.exefs)
