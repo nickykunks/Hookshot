@@ -42,14 +42,14 @@ MKW_EXPORT int mkw_recomp_attach(const MkwHost *h, MkwGameInfo *info) {
         info->version = MKW_HOST_VERSION;
         info->ctx_size = (uint32_t)sizeof(GuestContext);
         info->mem_base = (uint64_t)(uintptr_t)A64_MEM;
-        info->image_base = mkw_image_base;
+        info->image_base = recomp_image_base;
         info->functions = a64_fn_count;
 #if defined(A64_POLLING)
         info->polls = 1;
 #else
         info->polls = 0;
 #endif
-        info->main_build_id = mkw_main_build_id;
+        info->main_build_id = recomp_main_build_id;
     }
     if (!h || h->version != MKW_HOST_VERSION || h->ctx_size != sizeof(GuestContext))
         return 1;
