@@ -73,6 +73,13 @@ static void no_power_throttling(void) {
 
 int hos_game_is_mkw(void) { return !strcmp(hos_main_build_id, "d00e4f399e411d0613aa8d26b1c02fef"); }
 
+/* Ocarina-owned runtime features are enabled only for the exact program/update they were
+   implemented against. The renderer receives this as a capability, not a title guess. */
+int hos_game_is_oot(void) {
+    return hos_program_id == 0x0400486024DEC000ULL &&
+           !strcmp(hos_main_build_id, "e0f3ccfaf50065ae4ea01eb5aeb13b1a45da3348");
+}
+
 /* gen/hos_image.c (build.py lift) */
 extern const uint64_t hos_main_stack_size;
 extern const int hos_main_priority, hos_main_core, hos_module_count;
@@ -440,12 +447,14 @@ int hos_oot_protect_hearts;
 volatile int hos_oot_live_action;   /* (test runs) the live input file's "!cheat <action>": host/nn_hid.c */
 
 int hos_oot_hearts_enabled(void) {
+    if (!hos_game_is_oot()) return 0;
     int rx_option(int id, int otherwise);
     const int menu = rx_option(HOS_OPT_CHEAT_HEARTS, -1);
     return menu < 0 ? hos_oot_protect_hearts : menu;
 }
 
 int hos_oot_is_player(Ctx *c, uint64_t actor) {
+    if (!hos_game_is_oot()) return 0;
     if (recomp_load64(c, actor) != 0x84b6c460ULL) return 0;
     // Other actors share this vtable. The actor's resource record identifies Link.
     const uint64_t resource = recomp_load64(c, actor + 16);
@@ -464,6 +473,7 @@ static int oot_speed_percent = 100;
    map, keeps its pace), the physics step moving him by it with its collisions. Only speeds up to 15 m/s (his run is 4.5): a ledge
    climb sets some 55 for a frame, and scaled it threw him past the ledge. Every other controller as it is. */
 void hos_oot_cct_speed(Ctx *c, uint64_t controller, int per_second) {
+    if (!hos_game_is_oot()) return;
     if (!controller || controller != __atomic_load_n(&oot_speed_controller, __ATOMIC_RELAXED)) return;
     const int percent = __atomic_load_n(&oot_speed_percent, __ATOMIC_RELAXED);
     int hos_move_stick_held(void);   /* host/nn_hid.c */
@@ -1015,6 +1025,7 @@ static int oot_flight_moved_away(Ctx *c, uint64_t actor, const float held[3]) {
 }
 
 static void oot_update_player_cheats(Ctx *c, uint64_t actor, uint64_t components) {
+    if (!hos_game_is_oot()) return;
     int rx_option(int id, int otherwise);
     static uint64_t flying_actor, marked_actor, marked_controller;
     static int64_t last_tick, last_player_tick;
@@ -1140,6 +1151,7 @@ static void oot_update_player_cheats(Ctx *c, uint64_t actor, uint64_t components
 #endif
 
 int hos_oot_flight_shortcut_ready(void) {
+    if (!hos_game_is_oot()) return 0;
 #if defined(_WIN32) || defined(__linux__)   /* (the debug tools: host/posix has what they call) */
     const int64_t seen = __atomic_load_n(&flight_player_seen, __ATOMIC_RELAXED);
     return seen && hos_now_ns() - seen < 250000000;
@@ -1163,6 +1175,7 @@ static void oot_write_flight_rotation(Ctx *c, uint64_t matrix) {
 #endif
 
 void hos_oot_flight_rotation(Ctx *c, uint64_t controller, uint64_t matrix) {
+    if (!hos_game_is_oot()) return;
 #if defined(_WIN32) || defined(__linux__)   /* (the debug tools: host/posix has what they call) */
     if (flight_transform_controller == controller) oot_write_flight_rotation(c, matrix);
 #else
@@ -1173,6 +1186,7 @@ void hos_oot_flight_rotation(Ctx *c, uint64_t controller, uint64_t matrix) {
 }
 
 void hos_oot_flight_pose(Ctx *c, uint64_t actor, uint64_t matrix) {
+    if (!hos_game_is_oot()) return;
 #if defined(_WIN32) || defined(__linux__)   /* (the debug tools: host/posix has what they call) */
     if (flight_pose_actor == actor) {
         flight_pose_actor = 0;
@@ -1186,6 +1200,7 @@ void hos_oot_flight_pose(Ctx *c, uint64_t actor, uint64_t matrix) {
 }
 
 void hos_oot_lift_player(Ctx *c, uint64_t actor) {
+    if (!hos_game_is_oot()) return;
 #if defined(_WIN32) || defined(__linux__)   /* (the debug tools: host/posix has what they call) */
     flight_pose_actor = 0;
     if (recomp_load64(c, actor) != 0x84b45e18ULL) return;
@@ -1266,6 +1281,7 @@ static void oot_build_free_view(Ctx *c, uint64_t view, uint64_t out) {
 #endif
 
 void hos_oot_free_view(Ctx *c, uint64_t view) {
+    if (!hos_game_is_oot()) return;
 #if defined(_WIN32) || defined(__linux__)   /* (the debug tools: host/posix has what they call) */
     int rx_option(int id, int otherwise);
     if (!view || recomp_load64(c, view) != 0x84c18a88ULL) return;
@@ -1388,7 +1404,7 @@ static int game_main(int argc, char **argv) {
     occlusion_switch();
     {
         const char *protect_hearts = getenv("HOS_OOT_PROTECT_HEARTS");
-        hos_oot_protect_hearts = protect_hearts && !strcmp(protect_hearts, "1");
+        hos_oot_protect_hearts = hos_game_is_oot() && protect_hearts && !strcmp(protect_hearts, "1");
     }
 #ifdef _WIN32
     {   // (the whole process, not only the window's thread: the renderer asks the window's size from its own, and on a 4K screen at 150%
