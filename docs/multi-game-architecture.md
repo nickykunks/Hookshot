@@ -88,7 +88,7 @@ Do not put game dump bytes, derived code, keys, offsets discovered from private 
 
 Keep title-specific work in separately named modules with explicit registration:
 
-- Lift patches: an ordered set of patch functions with declared preconditions and required/optional status. A required patch mismatch should fail the build with a clear diagnostic; optional patches may report that they were not applied.
+- Lift patches: an ordered set of patch functions with declared preconditions and required/optional status. A required patch mismatch should fail the build with a clear diagnostic; optional patches may report that they were not applied. The profile-selected dispatcher now lives in `nx2/lift_patches.py`: it lazily loads pre-discovery hook modules and the post-write C patch module only for a profile that names a registered patch set. Profiles with no patch set use only shared lifting.
 - Runtime features: a title-owned registration for optional UI/cheat/game-state features. Generic runtime code should not grow more if-is-oot branches.
 - Shader workarounds: separately named, narrowly scoped transformations with evidence and tests; do not mix them into generic shader lowering without proving they are universal.
 - Data/layout adapters: title-specific save, RomFS, movie, input, and game-data behavior should be separate from common OS/API implementations.
@@ -113,7 +113,7 @@ The builder should only offer a production build for a profile whose declared mi
 
 1. Inventory and tests: record current coupling points; add game-free source/contract tests before moving code.
 2. Identity cleanup: make generated identity consistently generic (hos_*), remove new dependencies on legacy mkw_* symbols, and preserve any still-required MKW hooks behind explicit identity checks.
-3. Lift patch registry: replace unconditional Ocarina imports in nx2/lift.py with a profile-selected, ordered patch set. Keep current patch ordering and outputs byte-for-byte where practical.
+3. Lift patch registry: **implemented on `refactor/nx2-game-profiles`** in `nx2/lift_patches.py`. Ocarina's pre-discovery hooks and post-write C edits are selected by its profile; unknown/shared-only profiles do not import those modules. The existing exact-build gate for strict Ocarina patches is preserved. Full test-suite and game-build verification remain outstanding.
 4. Runtime feature registration: move Ocarina-only menu/game-state features behind a title extension interface without destabilizing the shared Horizon runtime.
 5. Shader workaround classification: tag each current workaround with scope, evidence, and a game-free regression test; keep unknown cases title-scoped.
 6. Second-title feasibility spike: choose a legally obtained local dump, inspect it locally, and produce a compatibility matrix. Do not register it as supported until the pipeline has passed the appropriate stage tests and an in-game validation run.
