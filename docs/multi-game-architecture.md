@@ -1,6 +1,6 @@
 # Multi-game architecture: audit and proposed boundaries
 
-Status: architecture proposal; no runtime behavior changes.
+Status: architecture plan with profile-driven lift patches and runtime feature registration implemented on `refactor/nx2-game-profiles`; full tests and game validation remain outstanding.
 
 This document records the current title-specific seams found in Hookshot and proposes a staged way to separate them from the shared Switch 2 recompilation pipeline. It is not a claim that another title is supported.
 
@@ -89,7 +89,7 @@ Do not put game dump bytes, derived code, keys, offsets discovered from private 
 Keep title-specific work in separately named modules with explicit registration:
 
 - Lift patches: an ordered set of patch functions with declared preconditions and required/optional status. A required patch mismatch should fail the build with a clear diagnostic; optional patches may report that they were not applied. The profile-selected dispatcher now lives in `nx2/lift_patches.py`: it lazily loads pre-discovery hook modules and the post-write C patch module only for a profile that names a registered patch set. Profiles with no patch set use only shared lifting.
-- Runtime features: a title-owned registration for optional UI/cheat/game-state features. Generic runtime code should not grow more if-is-oot branches.
+- Runtime features: a title-owned registration for optional UI/cheat/game-state features. The first boundary is implemented: `host/rx_backend.c` exports the exact-build-selected Ocarina debug capability through `MkwVkHost.game_features`, and the renderer gates its Ocarina debug tools on that capability. Host Ocarina entry points also fail closed for any other image. Future title features should add explicit capability bits and title-owned implementations rather than exposing game-specific controls by default.
 - Shader workarounds: separately named, narrowly scoped transformations with evidence and tests; do not mix them into generic shader lowering without proving they are universal.
 - Data/layout adapters: title-specific save, RomFS, movie, input, and game-data behavior should be separate from common OS/API implementations.
 
@@ -114,7 +114,7 @@ The builder should only offer a production build for a profile whose declared mi
 1. Inventory and tests: record current coupling points; add game-free source/contract tests before moving code.
 2. Identity cleanup: make generated identity consistently generic (hos_*), remove new dependencies on legacy mkw_* symbols, and preserve any still-required MKW hooks behind explicit identity checks.
 3. Lift patch registry: **implemented on `refactor/nx2-game-profiles`** in `nx2/lift_patches.py`. Ocarina's pre-discovery hooks and post-write C edits are selected by its profile; unknown/shared-only profiles do not import those modules. The existing exact-build gate for strict Ocarina patches is preserved. Full test-suite and game-build verification remain outstanding.
-4. Runtime feature registration: move Ocarina-only menu/game-state features behind a title extension interface without destabilizing the shared Horizon runtime.
+4. Runtime feature registration: **initial boundary implemented**. The versioned Vulkan host API now carries title feature bits; the Ocarina debug menu is enabled only for the exact supported program/build identity, and host Ocarina hooks fail closed for other images. The Ocarina implementation remains in `host/hos_main.c` for now; moving its implementation into a dedicated translation unit is a separate follow-up once its shared dependencies are isolated.
 5. Shader workaround classification: tag each current workaround with scope, evidence, and a game-free regression test; keep unknown cases title-scoped.
 6. Second-title feasibility spike: choose a legally obtained local dump, inspect it locally, and produce a compatibility matrix. Do not register it as supported until the pipeline has passed the appropriate stage tests and an in-game validation run.
 7. End-to-end verification: run python -I -B tests/run_all.py, build/test without game data in CI, and perform local game testing. Report unavailable OS/GPU/title tests honestly.
