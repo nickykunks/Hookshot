@@ -46,11 +46,11 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 PY = [sys.executable, "-I", "-u", "-X", "utf8"]   # (utf8: every step's output in UTF-8 whatever the console's code page: lift.py crashed on a letter, #180)   # (-u: the steps' output as it comes, not in 8 KB blocks minutes apart)
-BUILD_ID = "e0f3ccfa"   # (the version the patches, the hot list and the profile were made from)
 STARTED = time.time()   # (the build's total time, kept in build_times.json and said as @@times)
 sys.path[:0] = [HERE, os.path.join(ROOT, "third_party", "a64-kit", "tools")]   # (python -I leaves the script folder off)
 import toolchain as _toolchain
 import disk as _disk
+from game_profiles import GAME_PROFILES, profile_for_build_id
 # (hookshot) RX_TARGET=windows on Linux: the Windows game, with llvm-mingw's Linux release (HOOKSHOT_MINGW, or llvm-mingw
 # beside the builder), to run under Proton or copy to a Windows PC
 LINUX, CROSS = not _toolchain.windows(), _toolchain.windows() and os.name != "nt"
@@ -386,8 +386,9 @@ def check_modules(exefs):
 
 def check_supported_build(exefs):
     bid = build_id(os.path.join(exefs, "main"))
-    if not bid.startswith(BUILD_ID):
-        fail("This is build %s. Hookshot supports build %s." % (bid[:8], BUILD_ID))
+    if profile_for_build_id(bid) is None:
+        supported = ", ".join("build %s" % p.build_id_prefix for p in GAME_PROFILES)
+        fail("This is build %s. Hookshot supports %s." % (bid[:8], supported))
 
 
 def file_progress(verb, clock=time.monotonic):
@@ -516,10 +517,12 @@ def check(a, work):
         shutil.rmtree(probe, ignore_errors=True)
     else:
         bid = build_id(os.path.join(a.exefs, "main"))
-    if bid.startswith(BUILD_ID):
+    profile = profile_for_build_id(bid)
+    if profile is not None:
         say("check", "ok", "This is the version Hookshot supports (build %s)." % bid[:8])
     else:
-        say("check", "bad", "This is build %s. Hookshot supports build %s." % (bid[:8], BUILD_ID))
+        supported = ", ".join("build %s" % p.build_id_prefix for p in GAME_PROFILES)
+        say("check", "bad", "This is build %s. Hookshot supports %s." % (bid[:8], supported))
 
 
 def visual_studio_environment():
