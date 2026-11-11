@@ -902,8 +902,9 @@ constexpr int kQuitRow = sizeof rows / sizeof rows[0] - 1;
 constexpr int kRestartRow = kQuitRow - 1;
 const Row* pending = nullptr;   // (Restart or Quit: shows Confirm until its second press)
 bool cheats_env = false;   // (HOS_OOT_CHEATS=1: on whatever the Debug tab says)
-/// The debug tools: the Debug tab's row, or HOS_OOT_CHEATS=1
-bool cheats_on() { return cheats_env || opts.debug_tools; }
+bool oot_debug_features = false;   // (host-selected capability for the exact supported Ocarina build)
+/// Ocarina's debug tools: available only when the executable registered this title feature.
+bool cheats_on() { return oot_debug_features && (cheats_env || opts.debug_tools); }
 std::atomic<int> protect_hearts{-1};
 // -1 disables the shortcut, 0 enables it on the ground, and 1 means flying.
 std::atomic<int> player_flight{-1};
@@ -2574,6 +2575,8 @@ void menu_init() {
     static bool done;
     if (done) return;
     done = true;
+    oot_debug_features = host && host->game_features &&
+                         (host->game_features() & MKWVK_GAME_FEATURE_OOT_DEBUG) != 0;
     for (auto& count : item_counts) count.store(-1, std::memory_order_relaxed);
     bool has_options = false;
     const char* cheats = getenv("HOS_OOT_CHEATS");
@@ -2671,13 +2674,14 @@ bool menu_is_open() { return open_now.load(std::memory_order_relaxed); }
 // (the tools off on the Debug tab: flight, the free camera and heart protection put away; -1, heart protection never set, is the
 // host's own HOS_OOT_PROTECT_HEARTS)
 int menu_heart_protection() {
+    if (!oot_debug_features) return 0;
     const int v = protect_hearts.load(std::memory_order_relaxed);
     return cheats_on() || v < 0 ? v : 0;
 }
 int menu_player_flight() { return cheats_on() ? player_flight.load(std::memory_order_relaxed) : -1; }
 int menu_free_camera() { return cheats_on() ? free_camera.load(std::memory_order_relaxed) : 0; }
 int menu_link_speed() { return cheats_on() ? link_speeds[std::clamp(link_speed.load(std::memory_order_relaxed), 0, kLinkSpeeds - 1)] : 100; }
-int menu_take_cheat_action() { return cheat_action.exchange(0, std::memory_order_relaxed); }
+int menu_take_cheat_action() { return oot_debug_features ? cheat_action.exchange(0, std::memory_order_relaxed) : 0; }
 
 void menu_note_present_sizes(uint32_t picture_w, uint32_t picture_h, uint32_t window_w, uint32_t window_h) {
     const auto c = [](uint32_t v) { return (uint64_t)std::min(v, 0xffffu); };
@@ -2728,6 +2732,9 @@ bool fps_take(int64_t now, int64_t shown, int64_t game, int64_t* next, int64_t* 
 }
 
 void menu_option_set(int id, int value) {
+    if (!oot_debug_features && (id == OOT_CHEAT_AGE_ID ||
+        (id >= OOT_CHEAT_ITEM_BASE && id < OOT_CHEAT_ITEM_BASE + kItems) ||
+        id == HOS_OPT_CHEAT_FLIGHT)) return;
     if (id == OOT_CHEAT_AGE_ID) {   // (Link's age: the Switch age row shows it)
         if (link_age.exchange(value, std::memory_order_relaxed) != value && page == 0 && cur_tab == TAB_DEBUG) menu_refresh = true;
         return;
